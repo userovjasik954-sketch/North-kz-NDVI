@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Мониторинг NDVI СКО 2024</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f6; }
+        #map { height: 100vh; width: 100%; }
+
+        .header-panel {
+            position: absolute; top: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: white; padding: 10px 25px;
+            border-radius: 50px; z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            text-align: center; border: 1px solid #e0e0e0;
+        }
+
+        .info-card {
+            position: absolute; top: 100px; right: 20px;
+            background: white; width: 280px;
+            border-radius: 15px; z-index: 1000;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+            overflow: hidden; border: 1px solid #eee;
+        }
+        .info-header { background: #27ae60; color: white; padding: 15px; font-weight: bold; }
+        .info-body { padding: 20px; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .stat-label { color: #7f8c8d; font-size: 13px; }
+        .stat-value { font-weight: bold; color: #2c3e50; font-size: 16px; }
+
+        .legend {
+            position: absolute; bottom: 30px; left: 20px;
+            background: white; padding: 15px; border-radius: 10px;
+            z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            font-size: 12px;
+        }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+        .color-box { width: 18px; height: 18px; border-radius: 3px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="header-panel">
+    <strong style="font-size: 18px;">🌿 Мониторинг растительности СКО 2024</strong>
+</div>
+
+<div class="info-card">
+    <div class="info-header" id="dist-name">Выберите район</div>
+    <div class="info-body">
+        <div id="welcome-msg">Нажмите на район для статистики.</div>
+        <div id="stats-content" style="display:none;">
+            <div class="stat-row">
+                <span class="stat-label">Минимум NDVI:</span>
+                <span class="stat-value" id="val-min">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Максимум NDVI:</span>
+                <span class="stat-value" id="val-max">-</span>
+            </div>
+            <div style="font-size: 11px; color: #95a5a6; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+                *Данные: Sentinel-2 (Лето 2024)
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="legend">
+    <strong>Шкала NDVI (Max)</strong>
+    <div class="legend-item"><div class="color-box" style="background:#011301"></div> 0.6+ (Густая зелень)</div>
+    <div class="legend-item"><div class="color-box" style="background:#66A000"></div> 0.4 — 0.6 (Растительность)</div>
+    <div class="legend-item"><div class="color-box" style="background:#F1B555"></div> 0.2 — 0.4 (Степь)</div>
+    <div class="legend-item"><div class="color-box" style="background:#CE7E45"></div> < 0.2 (Почва/Вода)</div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
