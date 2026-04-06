@@ -17,7 +17,7 @@ function getColor(d) {
 }
 
 // 1. Загружаем РАСТР
-fetch("NDVI_2024_Raster.tif")
+fetch("NDVI_2024_Raster")
     .then(response => {
         if (!response.ok) throw new Error("Файл растра не найден на сервере");
         return response.arrayBuffer();
