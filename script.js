@@ -35,7 +35,7 @@ fetch("NDVI_2024_Raster.tif")
                 georaster: georaster,
                 opacity: 1,
                 // 128 - оптимально, чтобы не лагало на мобильных устройствах
-                resolution: 80, 
+                resolution: 64, 
                 pixelValuesToColorFn: values => {
                     // Максимально быстрая проверка: если первый канал 0 (черный), сразу пропускаем
                     if (values[0] === 0 || values[0] === null) return "transparent";
