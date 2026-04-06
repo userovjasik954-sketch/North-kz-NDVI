@@ -17,36 +17,29 @@ function getColor(d) {
 }
 
 // 1. ЗАГРУЗКА РАСТРА С GOOGLE DRIVE
-// Используем прокси-ссылку для прямого скачивания
+// Используем прокси, чтобы обойти защиту CORS от Google
 const fileId = "18qfEdCvoiku3wR7s475Xb1R55A_PIXoe";
-const url = `https://docs.google.com/uc?export=download&id=${fileId}`;
+const directUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
 
-console.log("Начинаю загрузку растра с Google Drive...");
+console.log("Пытаюсь обойти CORS через прокси...");
 
-fetch(url)
+fetch(proxyUrl)
     .then(response => {
-        if (!response.ok) throw new Error("Google Drive отказал в доступе. Проверь настройки доступа файла!");
+        if (!response.ok) throw new Error("Ошибка при получении файла через прокси");
         return response.arrayBuffer();
     })
     .then(arrayBuffer => {
         parseGeoraster(arrayBuffer).then(georaster => {
-            console.log("Растр успешно прочитан:", georaster);
-
+            console.log("Ура! Растр получен через прокси.");
+            
             ndviRasterLayer = new GeoRasterLayer({
                 georaster: georaster,
                 opacity: 0.7,
-                resolution: 128, // Оптимально для 37Мб
+                resolution: 128,
                 pixelValuesToColorFn: values => {
                     const val = values[0];
-                    // Если пиксель пустой или равен NoData
                     if (val === null || isNaN(val) || val === 0) return "transparent";
-                    
-                    // Если в файле уже есть RGB (3 канала), возвращаем их
-                    if (values.length >= 3) {
-                        return `rgb(${values[0]},${values[1]},${values[2]})`;
-                    }
-
-                    // Если в файле только 1 канал (NDVI от -1 до 1), красим вручную:
                     if (val > 0.6) return '#011301';
                     if (val > 0.4) return '#66A000';
                     if (val > 0.2) return '#F1B555';
@@ -56,15 +49,12 @@ fetch(url)
             });
 
             ndviRasterLayer.addTo(map);
-            console.log("Растр добавлен на карту");
-            
-            // Загружаем районы только ПОСЛЕ растра
             loadDistricts(); 
         });
     })
     .catch(err => {
-        console.error("Ошибка растра:", err);
-        loadDistricts(); // Если растр не подгрузился, всё равно показываем районы
+        console.error("CORS всё еще мешает:", err);
+        loadDistricts();
     });
 
 // 2. ФУНКЦИЯ ЗАГРУЗКИ РАЙОНОВ
