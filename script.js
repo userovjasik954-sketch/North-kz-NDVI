@@ -20,7 +20,7 @@ function getColor(d) {
 console.log("Загрузка растра NDVI...");
 
 // Убедись, что название файла на GitHub совпадает символ в символ!
-fetch("NDVI_2024_Raster") 
+fetch("NDVI_2024_Raster.tif") 
     .then(response => {
         if (!response.ok) throw new Error("Файл .tif не найден. Проверь имя файла на GitHub!");
         return response.arrayBuffer();
