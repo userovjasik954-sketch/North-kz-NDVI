@@ -8,7 +8,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 let districtsLayer; 
 let ndviRasterLayer;
 
-// Функция цветов для районов (векторы)
+// Функция цветов для районов (векторный слой)
 function getColor(d) {
     return d > 0.6 ? '#011301' :
            d > 0.4 ? '#66A000' :
@@ -16,23 +16,18 @@ function getColor(d) {
            d > 0.0 ? '#CE7E45' : '#FFFFFF';
 }
 
-// 1. ЗАГРУЗКА РАСТРА ЧЕРЕЗ ПРОКСИ (ОБХОД CORS)
-const fileId = "18qfEdCvoiku3wR7s475Xb1R55A_PIXoe";
-const driveUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+// 1. ЗАГРУЗКА РАСТРА НАПРЯМУЮ С СЕРВЕРА
+console.log("Загрузка растра NDVI...");
 
-// Используем сервис AllOrigins для обхода CORS
-const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(driveUrl)}`;
-
-console.log("Пытаюсь обойти CORS через прокси...");
-
-fetch(proxyUrl)
+// Убедись, что название файла на GitHub совпадает символ в символ!
+fetch("NDVI_2024_Raster") 
     .then(response => {
-        if (!response.ok) throw new Error("Прокси-сервер не смог забрать файл с Google Drive");
+        if (!response.ok) throw new Error("Файл .tif не найден. Проверь имя файла на GitHub!");
         return response.arrayBuffer();
     })
     .then(arrayBuffer => {
         parseGeoraster(arrayBuffer).then(georaster => {
-            console.log("Ура! Растр успешно получен через прокси.");
+            console.log("Растр прочитан успешно!");
 
             ndviRasterLayer = new GeoRasterLayer({
                 georaster: georaster,
@@ -42,27 +37,30 @@ fetch(proxyUrl)
                     const val = values[0];
                     if (val === null || isNaN(val) || val === 0) return "transparent";
                     
-                    // Раскраска (если вдруг файл пришел не RGB)
-                    if (values.length < 3) {
-                        if (val > 0.6) return '#011301';
-                        if (val > 0.4) return '#66A000';
-                        if (val > 0.2) return '#F1B555';
-                        if (val > 0.0) return '#CE7E45';
-                        return "transparent";
+                    // Если в файле 3+ канала (RGB), показываем как есть
+                    if (values.length >= 3) {
+                        return `rgb(${values[0]},${values[1]},${values[2]})`;
                     }
-                    // Если файл цветной RGB
-                    return `rgb(${values[0]},${values[1]},${values[2]})`;
+                    
+                    // Если 1 канал (NDVI значения), раскрашиваем
+                    if (val > 0.6) return '#011301';
+                    if (val > 0.4) return '#66A000';
+                    if (val > 0.2) return '#F1B555';
+                    if (val > 0.0) return '#CE7E45';
+                    return "transparent";
                 }
             });
 
             ndviRasterLayer.addTo(map);
-            console.log("Растр на карте!");
+            console.log("Растр отображен!");
+            
+            // Загружаем границы поверх растра
             loadDistricts(); 
         });
     })
     .catch(err => {
-        console.error("CORS всё еще мешает или прокси тормозит:", err);
-        // Даже если растр не загрузился, показываем районы
+        console.error("Ошибка растра:", err);
+        // Если растр не загрузился, всё равно показываем районы
         loadDistricts();
     });
 
@@ -78,7 +76,7 @@ function loadDistricts() {
                         fillColor: getColor(val),
                         weight: 1.5,
                         color: 'white',
-                        fillOpacity: 0.3 // Прозрачность, чтобы видеть растр под ними
+                        fillOpacity: 0.3
                     };
                 },
                 onEachFeature: function(feature, layer) {
@@ -96,7 +94,7 @@ function loadDistricts() {
                 }
             }).addTo(map);
         })
-        .catch(err => console.error("Ошибка загрузки GeoJSON:", err));
+        .catch(err => console.error("Ошибка GeoJSON:", err));
 }
 
 // 3. ФУНКЦИЯ ДЛЯ КНОПКИ
