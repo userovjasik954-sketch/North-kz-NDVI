@@ -16,23 +16,24 @@ function getColor(d) {
            d > 0.0 ? '#CE7E45' : '#FFFFFF';
 }
 
-// 1. ЗАГРУЗКА РАСТРА С GOOGLE DRIVE
-// Используем прокси, чтобы обойти защиту CORS от Google
+// 1. ЗАГРУЗКА РАСТРА ЧЕРЕЗ ПРОКСИ (ОБХОД CORS)
 const fileId = "18qfEdCvoiku3wR7s475Xb1R55A_PIXoe";
-const directUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
-const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+const driveUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+
+// Используем сервис AllOrigins для обхода CORS
+const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(driveUrl)}`;
 
 console.log("Пытаюсь обойти CORS через прокси...");
 
 fetch(proxyUrl)
     .then(response => {
-        if (!response.ok) throw new Error("Ошибка при получении файла через прокси");
+        if (!response.ok) throw new Error("Прокси-сервер не смог забрать файл с Google Drive");
         return response.arrayBuffer();
     })
     .then(arrayBuffer => {
         parseGeoraster(arrayBuffer).then(georaster => {
-            console.log("Ура! Растр получен через прокси.");
-            
+            console.log("Ура! Растр успешно получен через прокси.");
+
             ndviRasterLayer = new GeoRasterLayer({
                 georaster: georaster,
                 opacity: 0.7,
@@ -40,20 +41,28 @@ fetch(proxyUrl)
                 pixelValuesToColorFn: values => {
                     const val = values[0];
                     if (val === null || isNaN(val) || val === 0) return "transparent";
-                    if (val > 0.6) return '#011301';
-                    if (val > 0.4) return '#66A000';
-                    if (val > 0.2) return '#F1B555';
-                    if (val > 0.0) return '#CE7E45';
-                    return "transparent";
+                    
+                    // Раскраска (если вдруг файл пришел не RGB)
+                    if (values.length < 3) {
+                        if (val > 0.6) return '#011301';
+                        if (val > 0.4) return '#66A000';
+                        if (val > 0.2) return '#F1B555';
+                        if (val > 0.0) return '#CE7E45';
+                        return "transparent";
+                    }
+                    // Если файл цветной RGB
+                    return `rgb(${values[0]},${values[1]},${values[2]})`;
                 }
             });
 
             ndviRasterLayer.addTo(map);
+            console.log("Растр на карте!");
             loadDistricts(); 
         });
     })
     .catch(err => {
-        console.error("CORS всё еще мешает:", err);
+        console.error("CORS всё еще мешает или прокси тормозит:", err);
+        // Даже если растр не загрузился, показываем районы
         loadDistricts();
     });
 
