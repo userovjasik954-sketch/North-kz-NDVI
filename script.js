@@ -1,11 +1,11 @@
-// Инициализация карты
+// Инициализация карты с использованием Canvas для плавности
 const map = L.map('map', { 
     zoomControl: false,
-    maxZoom: 14,
-    minZoom: 6
+    renderer: L.canvas(), // Ускоряет отрисовку векторов (районов)
+    preferCanvas: true
 }).setView([54.5, 69.0], 7);
 
-// Используем темную подложку, чтобы зеленый NDVI смотрелся контрастнее
+// Темная тема подложки для лучшего контраста NDVI
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© OpenStreetMap'
 }).addTo(map);
@@ -13,7 +13,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 let districtsLayer; 
 let ndviRasterLayer;
 
-// Функция цветов для районов (векторный слой)
+// Оптимизированная палитра
 function getColor(d) {
     return d > 0.6 ? '#011301' :
            d > 0.4 ? '#66A000' :
@@ -23,33 +23,29 @@ function getColor(d) {
 
 console.log("Загрузка растра NDVI...");
 
-// 1. ЗАГРУЗКА РАСТРА
+// 1. ЗАГРУЗКА И ОПТИМИЗИРОВАННАЯ ОТРИСОВКА РАСТРА
 fetch("NDVI_2024_Raster.tif") 
     .then(response => {
-        if (!response.ok) throw new Error("Файл .tif не найден!");
+        if (!response.ok) throw new Error("Файл не найден");
         return response.arrayBuffer();
     })
     .then(arrayBuffer => {
         parseGeoraster(arrayBuffer).then(georaster => {
-            console.log("Растр прочитан успешно!");
-
             ndviRasterLayer = new GeoRasterLayer({
                 georaster: georaster,
-                opacity: 1,          // Убираем прозрачность, чтобы не было "серости"
-                resolution: 256,    // Увеличиваем четкость (было 128)
+                opacity: 1,
+                // 128 - оптимально, чтобы не лагало на мобильных устройствах
+                resolution: 128, 
                 pixelValuesToColorFn: values => {
-                    const r = values[0], g = values[1], b = values[2];
+                    // Максимально быстрая проверка: если первый канал 0 (черный), сразу пропускаем
+                    if (values[0] === 0 || values[0] === null) return "transparent";
                     
-                    // Если пиксель пустой (черный) - делаем прозрачным
-                    if (values.every(v => v === 0 || v === null)) return "transparent";
-                    
-                    // Если файл RGB (из GEE visualize)
+                    // Если файл RGB (уже раскрашен в GEE)
                     if (values.length >= 3) {
-                        // Немного усиливаем яркость для сочности
-                        return `rgb(${r},${g},${b})`;
+                        return `rgb(${values[0]},${values[1]},${values[2]})`;
                     }
                     
-                    // Если файл - сырые значения NDVI (1 канал)
+                    // Если файл одноканальный (сырой NDVI)
                     const val = values[0];
                     if (val > 0.6) return '#011301';
                     if (val > 0.4) return '#66A000';
@@ -60,28 +56,30 @@ fetch("NDVI_2024_Raster.tif")
             });
 
             ndviRasterLayer.addTo(map);
-            console.log("Растр отображен с высокой четкостью!");
+            console.log("Растр оптимизирован и добавлен.");
             loadDistricts(); 
         });
     })
     .catch(err => {
-        console.error("Ошибка растра:", err);
+        console.error("Ошибка:", err);
         loadDistricts();
     });
 
-// 2. ФУНКЦИЯ ЗАГРУЗКИ РАЙОНОВ
+// 2. ЗАГРУЗКА РАЙОНОВ (ОПТИМИЗИРОВАННЫЙ GEOJSON)
 function loadDistricts() {
+    // Используем уже оптимизированный через Python файл
     fetch('ndvi_2024_data.geojson')
         .then(res => res.json())
         .then(data => {
             districtsLayer = L.geoJSON(data, {
                 style: function(feature) {
+                    // Используем данные из свойств, округленные твоим скриптом
                     const val = feature.properties.max || 0; 
                     return {
                         fillColor: getColor(val),
-                        weight: 1,        // Делаем границы тоньше
-                        color: 'rgba(255,255,255,0.5)', // Белые полупрозрачные границы
-                        fillOpacity: 0.15  // Почти прозрачные, чтобы не закрывать растр
+                        weight: 1,
+                        color: 'rgba(255,255,255,0.3)',
+                        fillOpacity: 0.1 // Делаем почти прозрачным, чтобы не грузить рендер поверх растра
                     };
                 },
                 onEachFeature: function(feature, layer) {
@@ -90,6 +88,7 @@ function loadDistricts() {
                             const p = feature.properties;
                             document.getElementById('welcome-msg').style.display = 'none';
                             document.getElementById('stats-content').style.display = 'block';
+                            // Отображаем название района и статистику
                             document.getElementById('dist-name').innerText = p.ADM2_EN || "Район";
                             document.getElementById('val-min').innerText = p.min ? p.min.toFixed(3) : "н/д";
                             document.getElementById('val-max').innerText = p.max ? p.max.toFixed(3) : "н/д";
@@ -102,7 +101,7 @@ function loadDistricts() {
         .catch(err => console.error("Ошибка GeoJSON:", err));
 }
 
-// 3. ФУНКЦИЯ ДЛЯ КНОПКИ
+// Переключатель слоев
 window.toggleDistricts = function() {
     if (districtsLayer) {
         if (map.hasLayer(districtsLayer)) {
