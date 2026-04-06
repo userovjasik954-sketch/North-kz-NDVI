@@ -1,7 +1,12 @@
 // Инициализация карты
-const map = L.map('map', { zoomControl: false }).setView([54.5, 69.0], 7);
+const map = L.map('map', { 
+    zoomControl: false,
+    maxZoom: 14,
+    minZoom: 6
+}).setView([54.5, 69.0], 7);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+// Используем темную подложку, чтобы зеленый NDVI смотрелся контрастнее
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© OpenStreetMap'
 }).addTo(map);
 
@@ -16,13 +21,12 @@ function getColor(d) {
            d > 0.0 ? '#CE7E45' : '#FFFFFF';
 }
 
-// 1. ЗАГРУЗКА РАСТРА НАПРЯМУЮ С СЕРВЕРА
 console.log("Загрузка растра NDVI...");
 
-// Убедись, что название файла на GitHub совпадает символ в символ!
+// 1. ЗАГРУЗКА РАСТРА
 fetch("NDVI_2024_Raster.tif") 
     .then(response => {
-        if (!response.ok) throw new Error("Файл .tif не найден. Проверь имя файла на GitHub!");
+        if (!response.ok) throw new Error("Файл .tif не найден!");
         return response.arrayBuffer();
     })
     .then(arrayBuffer => {
@@ -31,18 +35,22 @@ fetch("NDVI_2024_Raster.tif")
 
             ndviRasterLayer = new GeoRasterLayer({
                 georaster: georaster,
-                opacity: 0.7,
-                resolution: 128,
+                opacity: 1,          // Убираем прозрачность, чтобы не было "серости"
+                resolution: 256,    // Увеличиваем четкость (было 128)
                 pixelValuesToColorFn: values => {
-                    const val = values[0];
-                    if (val === null || isNaN(val) || val === 0) return "transparent";
+                    const r = values[0], g = values[1], b = values[2];
                     
-                    // Если в файле 3+ канала (RGB), показываем как есть
+                    // Если пиксель пустой (черный) - делаем прозрачным
+                    if (values.every(v => v === 0 || v === null)) return "transparent";
+                    
+                    // Если файл RGB (из GEE visualize)
                     if (values.length >= 3) {
-                        return `rgb(${values[0]},${values[1]},${values[2]})`;
+                        // Немного усиливаем яркость для сочности
+                        return `rgb(${r},${g},${b})`;
                     }
                     
-                    // Если 1 канал (NDVI значения), раскрашиваем
+                    // Если файл - сырые значения NDVI (1 канал)
+                    const val = values[0];
                     if (val > 0.6) return '#011301';
                     if (val > 0.4) return '#66A000';
                     if (val > 0.2) return '#F1B555';
@@ -52,15 +60,12 @@ fetch("NDVI_2024_Raster.tif")
             });
 
             ndviRasterLayer.addTo(map);
-            console.log("Растр отображен!");
-            
-            // Загружаем границы поверх растра
+            console.log("Растр отображен с высокой четкостью!");
             loadDistricts(); 
         });
     })
     .catch(err => {
         console.error("Ошибка растра:", err);
-        // Если растр не загрузился, всё равно показываем районы
         loadDistricts();
     });
 
@@ -74,9 +79,9 @@ function loadDistricts() {
                     const val = feature.properties.max || 0; 
                     return {
                         fillColor: getColor(val),
-                        weight: 1.5,
-                        color: 'white',
-                        fillOpacity: 0.3
+                        weight: 1,        // Делаем границы тоньше
+                        color: 'rgba(255,255,255,0.5)', // Белые полупрозрачные границы
+                        fillOpacity: 0.15  // Почти прозрачные, чтобы не закрывать растр
                     };
                 },
                 onEachFeature: function(feature, layer) {
